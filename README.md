@@ -22,7 +22,7 @@ Para generar los datos de este modo:
 py -3 scripts\exportar_plano_fincas_web.py C:\plano-fincas-agromartin --berries
 ```
 
-Se actualiza solo: la tarea programada «AGROMARTIN - Plano web plantacion» lanza `scriptsctualizar_plano_web.bat` cada 2 horas (de 9:00 a 22:00). Solo sube un commit si cambian los datos.
+Se actualiza solo: una tarea programada del PC de la oficina («AGROMARTIN - Plano web plantacion») mira cada 10 minutos, de 8:00 a 22:00, si ha cambiado la plantación en el ERP. Cuando cambia, regenera los datos y los sube, se grabe desde el ordenador que se grabe.
 
 Sin `--berries` se exportan todas las fincas activas, solo con superficie y cultivo.
 
