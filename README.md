@@ -7,6 +7,23 @@ Página web (un solo `index.html` con Leaflet) con las fincas activas de Agromar
 
 Está adaptada de la demo [franagromartin/plano-demo](https://franagromartin.github.io/plano-demo/), que no se ha modificado.
 
+## Modo actual: plantación de fresa
+
+Ahora mismo la página muestra la **plantación de fresa de la campaña en curso**: solo las fincas de fresa, sin arándano, mora ni frambuesa.
+
+- Cada parcela se colorea con la variedad plantada.
+- Las parcelas que aún no se han plantado salen en gris rayado.
+- El panel enseña las plantas plantadas frente a las previstas y el % de avance.
+- La ficha de cada parcela incluye fechas, lomo, plantas/ha, la campaña anterior y el replante.
+
+Para generar los datos de este modo:
+
+```
+py -3 scripts\exportar_plano_fincas_web.py C:\plano-fincas-agromartin --berries
+```
+
+Sin `--berries` se exportan todas las fincas activas, solo con superficie y cultivo.
+
 ## Qué enseña
 
 **Panel de fincas**

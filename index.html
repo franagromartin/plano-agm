@@ -73,19 +73,21 @@ main{position:relative}
 .rot:before{display:none}
 /* globo */
 .leaflet-popup-content-wrapper{border-radius:14px;box-shadow:var(--sombra);padding:0}
-.leaflet-popup-content{margin:0;width:min(310px,calc(100vw - 60px))!important}
+.leaflet-popup-content{margin:0;width:min(340px,calc(100vw - 60px))!important}
 .pp{padding:14px 14px 10px}
 .pp h3{font:700 16px 'Archivo',sans-serif;margin:2px 0 2px}
 .pp .tit{font-size:12.5px;color:var(--sub);margin-bottom:10px}
 .pp .tit b{color:var(--tinta)}
 .kpis{display:flex;gap:8px;margin:8px 0 10px}
-.kpis div{flex:1;border:1px solid var(--linea);background:var(--sup2);border-radius:9px;padding:6px 8px}
+.kpis>div{flex:1;border:1px solid var(--linea);background:var(--sup2);border-radius:9px;padding:6px 8px}
 .kpis b{display:block;font:600 15px 'IBM Plex Mono',monospace}
 .kpis small{font-size:11px;color:var(--tenue)}
 .tparc{max-height:220px;overflow:auto;border:1px solid var(--linea);border-radius:9px}
-.tparc table{border-collapse:collapse;width:100%;font-size:12.5px}
-.tparc th{position:sticky;top:0;background:var(--sup2);font:600 10px 'Archivo',sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--tenue);text-align:left;padding:5px 7px;border-bottom:1px solid var(--linea)}
-.tparc td{padding:4px 7px;border-bottom:1px solid var(--linea)}
+.tparc table{border-collapse:collapse;width:100%;font-size:12px;table-layout:fixed}
+.tparc td{overflow:hidden;text-overflow:ellipsis}
+.tparc th{position:sticky;top:0;background:var(--sup2);font:600 11px 'Archivo',sans-serif;color:var(--tenue);text-align:left;padding:5px 6px;border-bottom:1px solid var(--linea);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tparc td{padding:4px 6px;border-bottom:1px solid var(--linea);white-space:nowrap}
+.tparc{overflow-x:hidden}
 .tparc td.d,.tparc th.d{text-align:right}
 .tparc tr[data-p]{cursor:pointer}
 .tparc tr[data-p]:hover td{background:var(--sup2)}
@@ -93,7 +95,17 @@ main{position:relative}
 .pp .acc{display:flex;gap:6px;margin-top:10px}
 .pp .acc a,.pp .acc button{flex:1;text-align:center;text-decoration:none;color:var(--tinta);font:600 12px 'Archivo',sans-serif;border:1px solid var(--linea2);border-radius:8px;padding:6px 8px;background:#fff;cursor:pointer}
 .pp .acc a:hover,.pp .acc button:hover{border-color:var(--corp);color:var(--corp)}
+.leyenda{position:absolute;right:14px;bottom:30px;z-index:1000;background:var(--sup);border:1px solid var(--linea);border-radius:12px;box-shadow:var(--sombra);padding:9px 11px;font-size:12.5px;max-width:230px}
+.leyenda div{display:flex;align-items:center;gap:7px;padding:1px 0}
+.leyenda div span.num{margin-left:auto;color:var(--sub);font-size:11.5px}
+.leyenda i{width:12px;height:12px;border-radius:3px;display:inline-block;flex:0 0 auto}
+.leyenda i.pend{background:repeating-linear-gradient(45deg,#bdb4b0 0 3px,#fff 3px 6px);border:1px solid #9a908c}
+.avance{height:6px;border-radius:3px;background:var(--linea);overflow:hidden;margin-top:4px}
+.avance b{display:block;height:100%;background:var(--corp)}
+.avance b.ok{background:#2f7d5c}
+.tparc td.pend{color:var(--tenue);font-style:italic}
 @media(max-width:760px){
+ .leyenda{left:10px;right:auto;bottom:34px;max-width:60vw;font-size:11.5px}
  header{gap:8px;padding:0 10px;height:52px}
  #app{grid-template-rows:52px 1fr}
  .busca input{font-size:16px;padding:7px 10px 7px 30px}
@@ -131,6 +143,7 @@ main{position:relative}
   <button data-b="orto" class="on">Ortofoto</button><button data-b="mapa">Mapa</button><button data-b="cat">Catastro</button>
  </div>
  <div class="inicio"><button class="bt" id="bt-inicio">⌂ Todas las fincas</button></div>
+ <div class="leyenda" id="leyenda" hidden></div>
  <div class="pista" id="pista">Pincha en una finca o en una parcela para ver sus datos</div>
  <div class="sinred" id="sinred"><div><b>No se ha podido cargar la ortofoto.</b><br>El plano necesita conexión a internet para pedir las imágenes al IGN. Las fincas y sus datos funcionan igual.</div></div>
 </main>
@@ -145,6 +158,20 @@ const ha = v => nf(v,2) + ' ha';
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const COLOR = Object.fromEntries(FINCAS.familias.map(f => [f.nombre, f.color]));
 const DATOS = FINCAS.fincas;
+const PLT = FINCAS.modo === 'berries';                 // plantación de berries de la campaña
+const CAMP = FINCAS.campana ? FINCAS.campana.slice(0,5) + FINCAS.campana.slice(-2) : '';
+const COLOR_VAR = Object.fromEntries((FINCAS.variedades || []).map(v => [v.nombre, v.color]));
+const PEND = '#bdb4b0';
+const pltDe = (f, base) => (f.plt || []).find(x => x.n === base);
+const totPlt = fs => fs.reduce((a,f) => { (f.plt||[]).forEach(x => { a.pl += x.plantado; a.pr += x.previsto; a.rep += x.replante; }); return a; }, {pl:0, pr:0, rep:0});
+const pct = (a,b) => b ? Math.round(a / b * 100) : null;
+const barra = (a,b) => { const v = pct(a,b); return v === null ? '' : `<div class="avance"><b class="${v >= 100 ? 'ok' : ''}" style="width:${Math.min(v,100)}%"></b></div>`; };
+if(PLT){
+  document.querySelector('.marca b').textContent = 'Plantación de fresa';
+  document.querySelector('.marca span span').textContent = `Agromartín · campaña ${CAMP}`;
+  document.querySelector('#panel h2').textContent = `Plantación ${CAMP}`;
+  document.title = `Plantación de fresa ${CAMP} · Agromartín`;
+}
 document.getElementById('fecha').textContent = 'Datos del ERP · ' + FINCAS.generado;
 document.getElementById('n-fincas').textContent = DATOS.length;
 { const n = {}; DATOS.forEach(f => { if(f.termino) n[f.termino] = (n[f.termino]||0) + 1; });   // términos por nº de fincas
@@ -196,8 +223,13 @@ DATOS.forEach(f => {
   const g = L.layerGroup();
   polis[f.id] = {};
   f.parcelas.forEach(p => {
-    const col = COLOR[p.fam] || '#7a6a63';
-    const pl = L.polygon(p.g, {color:'#ffffff', weight:1.4, fillColor:col, fillOpacity:.38}).addTo(g);
+    let col = COLOR[p.fam] || '#7a6a63', estilo = {};
+    if(PLT){                                   // color de la variedad plantada; pendiente en gris
+      const x = pltDe(f, p.base);
+      if(x && x.plantado) col = COLOR_VAR[x.vars[0][0]] || col;
+      else if(x && x.previsto){ col = PEND; estilo = {dashArray:'5 4', fillOpacity:.5}; }
+    }
+    const pl = L.polygon(p.g, {color:'#ffffff', weight:1.4, fillColor:col, fillOpacity:.42, ...estilo}).addTo(g);
     pl.bindTooltip(p.n, {permanent:true, direction:'center', className:'rot', interactive:false});
     pl.on('click', e => { L.DomEvent.stopPropagation(e); popupParcela(f, p, e.latlng); });
     polis[f.id][p.n] = pl;
@@ -206,7 +238,7 @@ DATOS.forEach(f => {
   capas[f.id] = g;
   const m = L.marker(f.pos, {icon:icono(f), riseOnHover:true});
   m.bindTooltip(f.nombre, {permanent:true, direction:'right', offset:[11,-17], className:'etq'});
-  m.bindPopup(() => popupFinca(f), {maxWidth:330, minWidth:Math.min(310, innerWidth-60), autoPanPaddingTopLeft:[20,70], autoPanPaddingBottomRight:[20,30]});
+  m.bindPopup(() => popupFinca(f), {maxWidth:360, minWidth:Math.min(340, innerWidth-60), autoPanPaddingTopLeft:[20,70], autoPanPaddingBottomRight:[20,30]});
   m.on('popupopen', () => { document.getElementById('pista').style.opacity = 0; });
   marcas[f.id] = m;
 });
@@ -236,15 +268,29 @@ const nav = pos => `https://www.google.com/maps/dir/?api=1&destination=${pos[0]}
 function popupFinca(f){
   const d = document.createElement('div'); d.className = 'pp';
   const cult = f.cultivos.length ? f.cultivos.join(', ') : '—';
-  d.innerHTML = `<span class="eyebrow">Finca${f.termino ? ' · ' + esc(f.termino) : ''}${f.erp ? ' · proyecto ' + esc(f.erp) : ''}</span>
+  const cab = `<span class="eyebrow">Finca${f.termino ? ' · ' + esc(f.termino) : ''}${f.erp ? ' · proyecto ' + esc(f.erp) : ''}</span>
     <h3>${esc(f.nombre)}</h3>
-    <div class="tit">Cultivos: <b>${esc(cult)}</b></div>
-    <div class="kpis"><div><b>${nf(f.ha,2)}</b><small>ha</small></div><div><b>${f.parcelas.length}</b><small>parcelas</small></div></div>
+    <div class="tit">Cultivos: <b>${esc(cult)}</b></div>`;
+  if(PLT && (f.plt || []).some(x => x.plantado || x.previsto)){
+    const t = totPlt([f]);
+    d.innerHTML = cab + `<div class="kpis"><div><b>${nf(t.pl)}</b><small>plantadas ${CAMP}</small></div>
+        <div><b>${nf(t.pr)}</b><small>previstas</small></div><div><b>${pct(t.pl,t.pr) ?? '—'} %</b><small>avance</small>${barra(t.pl,t.pr)}</div></div>
+      <div class="tparc"><table><colgroup><col style="width:22%"><col style="width:25%"><col style="width:27%"><col style="width:26%"></colgroup>
+      <thead><tr><th>Parcela</th><th>Variedad</th><th class="d">Plantadas</th><th class="d">Previstas</th></tr></thead><tbody>
+      ${f.plt.map(x => { const v = x.vars.length ? x.vars.map(a => a[0]).join(' + ') : (x.var_prev.join(' + ') || '—');
+          const sub = f.parcelas.find(p => p.base === x.n);
+          return `<tr ${sub ? `data-p="${esc(sub.n)}"` : ''}><td><i style="background:${x.plantado ? (COLOR_VAR[x.vars[0][0]]||PEND) : PEND}"></i><b>${esc(x.n)}</b>${x.dibujada ? '' : ' <small style="color:var(--tenue)">sin dibujar</small>'}</td>
+            <td class="${x.plantado ? '' : 'pend'}">${esc(v)}${x.plantado ? '' : ' (prevista)'}</td>
+            <td class="d num">${x.plantado ? nf(x.plantado) : '—'}</td><td class="d num">${x.previsto ? nf(x.previsto) : '—'}</td></tr>`; }).join('')}
+      </tbody></table></div>`;
+  } else {
+    d.innerHTML = cab + `<div class="kpis"><div><b>${nf(f.ha,2)}</b><small>ha</small></div><div><b>${f.parcelas.length}</b><small>parcelas</small></div></div>
     <div class="tparc"><table><thead><tr><th>Parcela</th><th>Cultivo · variedad</th><th class="d">ha</th></tr></thead><tbody>
     ${f.parcelas.map(p => `<tr data-p="${esc(p.n)}"><td><i style="background:${COLOR[p.fam]}"></i><b>${esc(p.n)}</b></td>
        <td>${esc(p.cultivo)}${p.var ? ' · ' + esc(p.var) : ''}</td><td class="d num">${nf(p.ha,2)}</td></tr>`).join('')}
-    </tbody></table></div>
-    <div class="acc"><button data-a="ver">Ver parcelas</button><a href="${nav(f.pos)}" target="_blank" rel="noopener">Cómo llegar ›</a></div>`;
+    </tbody></table></div>` + (PLT ? `<div class="tit" style="margin:8px 0 0">Sin plantación registrada esta campaña (cultivo plurianual o pendiente).</div>` : '');
+  }
+  d.insertAdjacentHTML('beforeend', `<div class="acc"><button data-a="ver">Ver parcelas</button><a href="${nav(f.pos)}" target="_blank" rel="noopener">Cómo llegar ›</a></div>`);
   d.querySelectorAll('tr[data-p]').forEach(tr => tr.onclick = () => irParcela(f, tr.dataset.p));
   d.querySelector('[data-a="ver"]').onclick = () => { map.closePopup(); map.flyToBounds(L.polygon(f.contorno).getBounds(), {padding:[40,40], duration:1.2}); };
   return d;
@@ -252,10 +298,20 @@ function popupFinca(f){
 function popupParcela(f, p, latlng){
   const c = polis[f.id][p.n].getBounds().getCenter();
   const d = document.createElement('div'); d.className = 'pp';
+  const x = PLT ? pltDe(f, p.base) : null;
+  let cuerpo;
+  if(x && (x.plantado || x.previsto)){
+    const parte = p.base !== p.n ? `<br><small>Datos de la parcela ${esc(x.n)} completa (${nf(x.ha,2)} ha)</small>` : '';
+    const vars = x.vars.length ? x.vars.map(a => `<b>${esc(a[0])}</b> ${nf(a[1])}`).join(' · ') : `<i>pendiente</i>${x.var_prev.length ? ' · prevista ' + esc(x.var_prev.join(' + ')) : ''}`;
+    cuerpo = `<div class="tit">Variedad: ${vars}${x.lomo ? '<br>Lomo: <b>' + esc(x.lomo) + '</b>' : ''}${x.desde ? `<br>Plantada: <b>${x.desde === x.hasta ? x.desde : x.desde + ' – ' + x.hasta}</b>` : ''}${parte}</div>
+      <div class="kpis"><div><b>${x.plantado ? nf(x.plantado) : '—'}</b><small>plantadas</small></div><div><b>${x.previsto ? nf(x.previsto) : '—'}</b><small>previstas</small>${barra(x.plantado, x.previsto)}</div></div>
+      <div class="kpis"><div><b>${x.plantado && x.ha ? nf(x.plantado / x.ha) : '—'}</b><small>plantas/ha</small></div><div><b>${x.ant ? nf(x.ant) : '—'}</b><small>campaña anterior</small></div>${x.replante ? `<div><b>${nf(x.replante)}</b><small>replante</small></div>` : ''}</div>`;
+  } else {
+    cuerpo = `<div class="tit">Cultivo: <b>${esc(p.cultivo || '—')}</b>${p.var ? '<br>Variedad: <b>' + esc(p.var) + '</b>' : ''}</div>
+      <div class="kpis"><div><b>${nf(p.ha,2)}</b><small>ha</small></div><div><b class="num" style="font-size:12px">${c.lat.toFixed(5)}, ${c.lng.toFixed(5)}</b><small>coordenadas</small></div></div>`;
+  }
   d.innerHTML = `<span class="eyebrow">${esc(f.nombre)}</span>
-    <h3>Parcela ${esc(p.n)}</h3>
-    <div class="tit">Cultivo: <b>${esc(p.cultivo || '—')}</b>${p.var ? '<br>Variedad: <b>' + esc(p.var) + '</b>' : ''}</div>
-    <div class="kpis"><div><b>${nf(p.ha,2)}</b><small>ha</small></div><div><b class="num" style="font-size:12px">${c.lat.toFixed(5)}, ${c.lng.toFixed(5)}</b><small>coordenadas</small></div></div>
+    <h3>Parcela ${esc(p.n)}${x && x.plantado ? '' : ''}</h3>${cuerpo}
     <div class="acc"><button data-a="finca">Ver la finca</button><a href="${nav([c.lat,c.lng])}" target="_blank" rel="noopener">Cómo llegar ›</a></div>`;
   d.querySelector('[data-a="finca"]').onclick = () => { map.closePopup(); marcas[f.id].openPopup(); };
   L.popup({maxWidth:330, minWidth:Math.min(280, innerWidth-60)}).setLatLng(latlng || c).setContent(d).openOn(map);
@@ -281,6 +337,21 @@ function abrir(id){
 }
 
 /* ══ panel y buscador ════════════════════════════════ */
+function linea(f){
+  if(PLT){ const t = totPlt([f]);
+    if(t.pl || t.pr) return `<small>${nf(t.pl)} de ${nf(t.pr)} plantas · ${pct(t.pl,t.pr) ?? '—'} %</small>${barra(t.pl,t.pr)}`;
+    return `<small>${esc(f.cultivos.join(', '))} · sin plantación esta campaña</small>`; }
+  return `<small>${esc(f.cultivos.slice(0,4).join(', '))}${f.cultivos.length > 4 ? '…' : ''}</small>`;
+}
+function pintarLeyenda(){
+  const l = document.getElementById('leyenda');
+  if(!PLT){ l.hidden = true; return; }
+  l.innerHTML = `<span class="eyebrow">Variedad plantada ${CAMP}</span>` + FINCAS.variedades.map(v =>
+    `<div><i style="background:${v.color}"></i>${esc(v.nombre)}<span class="num">${nf(v.plantas)}</span></div>`).join('')
+    + `<div><i class="pend"></i>Pendiente de plantar</div>`;
+  l.hidden = false;
+}
+pintarLeyenda();
 function pintarPanel(){
   const fams = FINCAS.familias.filter(x => DATOS.some(f => f.fam === x.nombre));
   document.getElementById('chips').innerHTML = `<button class="chip ${filtro==='Todas'?'on':''}" data-g="Todas">Todas</button>`
@@ -288,9 +359,11 @@ function pintarPanel(){
   document.querySelectorAll('#chips .chip').forEach(c => c.onclick = () => { filtro = c.dataset.g; pintarPanel(); });
   const vis = DATOS.filter(visible);
   document.getElementById('tot').innerHTML = `<b class="num">${vis.length}</b> fincas · <b class="num">${nf(vis.reduce((a,f)=>a+f.ha,0),2)}</b> ha · <b class="num">${vis.reduce((a,f)=>a+f.parcelas.length,0)}</b> parcelas`;
+  if(PLT){ const t = totPlt(vis);
+    document.getElementById('tot').innerHTML += `<br><b class="num">${nf(t.pl)}</b> plantas plantadas de <b class="num">${nf(t.pr)}</b> previstas · <b class="num">${pct(t.pl,t.pr) ?? '—'} %</b>${barra(t.pl,t.pr)}`; }
   document.getElementById('lista').innerHTML = vis.map(f => `<button class="prop" data-id="${f.id}">
      <span class="ic" style="background:${COLOR[f.fam]}"><svg viewBox="0 0 24 24" width="18" height="18"><path d="M6 15h12M6 11l6-4 6 4M8 15v-3M12 15v-4M16 15v-3" stroke="#fff" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-     <span><b>${esc(f.nombre)}</b><small>${nf(f.ha,2)} ha · ${f.parcelas.length} parcelas${f.erp ? ' · ' + esc(f.erp) : ''}</small><small>${esc(f.cultivos.slice(0,4).join(', '))}${f.cultivos.length > 4 ? '…' : ''}</small></span></button>`).join('');
+     <span style="flex:1"><b>${esc(f.nombre)}</b><small>${nf(f.ha,2)} ha · ${f.parcelas.length} parcelas${f.erp ? ' · ' + esc(f.erp) : ''}</small>${linea(f)}</span></button>`).join('');
   document.querySelectorAll('#lista .prop').forEach(b => b.onclick = () => { abrir(+b.dataset.id); if(innerWidth < 760) panelVer(false); });
   const sp = FINCAS.sin_plano;
   document.getElementById('sinplano').innerHTML = filtro === 'Todas' && sp.length
@@ -310,7 +383,9 @@ q.oninput = () => {
   const res = [];
   DATOS.forEach(f => {
     if(norm(f.nombre + ' ' + f.erp + ' ' + f.cultivos.join(' ')).includes(t)) res.push({f, tx:f.nombre, s:`${ha(f.ha)} · ${f.parcelas.length} parcelas`});
-    f.parcelas.forEach(p => { if(norm(p.n) === t || norm(p.var).includes(t) || norm(`${f.nombre} ${p.n}`).includes(t))
+    f.parcelas.forEach(p => { const x = PLT ? pltDe(f, p.base) : null;
+      if(norm(p.n) === t || norm(p.var).includes(t) || norm(`${f.nombre} ${p.n}`).includes(t)
+         || (x && x.vars.some(a => norm(a[0]).includes(t))))
       res.push({f, p, tx:`Parcela ${p.n} · ${f.nombre}`, s:`${p.cultivo}${p.var ? ' · ' + p.var : ''} · ${ha(p.ha)}`}); });
   });
   sug.innerHTML = res.slice(0,8).map((r,i) => `<button data-i="${i}">${esc(r.tx)}<small>${esc(r.s)}</small></button>`).join('')
